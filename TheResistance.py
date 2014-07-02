@@ -1,11 +1,19 @@
 #! /usr/bin/env python
 # -*- coding: utf-8 -*-
 import random
-# import copy
+import hashlib
+import time 
+from bottle import *
+import xml.etree.cElementTree as ET
+import thread
+import threading
+
 
 num_of_player = 6
 num_of_good = 4 
 num_of_bad = 2
+player_list = []
+playerFlag = 1
 
 class Player:
 	"""docstring for Player"""
@@ -16,6 +24,7 @@ class Player:
 	def __init__(self, **kwargs):
 		self.name = kwargs['name']
 		self.id = kwargs['id']
+		self.wechatID = kwargs['wechatID']
 
 	def show_self_info(self):
 		if self.is_good:
@@ -173,32 +182,25 @@ def start_game():
 			else:
 				player_list[leaderid].is_leader = True
 
-def init_game():
-	# print "init game"
-
-	#创建玩家
-	global player1, player2, player3, player4, player5, player6
+def init_player(name,wechatID):
 	global player_list
-	global player_leader
-	player_list = []
+	global playerFlag
+	player_list.append(Player(id=playerFlag, name=name, wechatID=wechatID))
+	playerFlag += 1	
+
+def init_game():
+	#创建玩家
+	global player_list
+	global player_leader	
 	# good_guy_list = []
 	bad_guy_list = []
 	
 	print "请依次输入玩家的名称"
-	player1 = Player(id=1, name=raw_input_nospace())
-	player2 = Player(id=2, name=raw_input_nospace())
-	player3 = Player(id=3, name=raw_input_nospace())
-	player4 = Player(id=4, name=raw_input_nospace())
-	player5 = Player(id=5, name=raw_input_nospace())
-	player6 = Player(id=6, name=raw_input_nospace())
+	a = 1
+	while a < 7:
+		player_list.append(Player(id=a, name=raw_input_nospace()))
+		a += 1
 	print "玩家已经创建"
-	
-	player_list.append(player1)
-	player_list.append(player2)
-	player_list.append(player3)
-	player_list.append(player4)
-	player_list.append(player5)
-	player_list.append(player6)
 
 	#随机确认队长
 	player_leader = random.choice(player_list)
@@ -214,29 +216,12 @@ def init_game():
 		else:
 			i = False
 
-	# print bad_guy_1.id, bad_guy_2.id
 	bad_guy_list.append(bad_guy_1)
 	bad_guy_list.append(bad_guy_2)
-
-	# good_guy_list = copy.copy(player_list)
-	# good_guy_list.pop((bad_guy_1.id-1))
-	# if bad_guy_1.id < bad_guy_2.id:
-	# 	good_guy_list.pop((bad_guy_2.id-2))
-	# else:
-	# 	good_guy_list.pop((bad_guy_2.id-1))
-
 
 	for i in bad_guy_list:
 		# print i.id
 		i.is_good = False
-	# print "-------------------"
-
-	# for i in good_guy_list:
-	# 	print i.id
-	# print "-------------------"
-	
-	# for i in player_list:
-	# 	print i.id
 	
 def raw_input_nospace():
 	words = ""
@@ -267,8 +252,105 @@ def print_executants(executants, num_of_executants):
 		sentence = "%d号玩家%s, %d号玩家%s, %d号玩家%s, %d号玩家%s"% (executants[0].id, executants[0].name, executants[1].id, executants[1].name, executants[2].id, executants[2].name, executants[3].id, executants[3].name)
 	return sentence
 
+
+
+AuthorID = "oLXjgjiWeAS1gfe4ECchYewwoyTc"
+
+gameStart = 0
+
+TPL_TEXT = """<xml>
+             <ToUserName><![CDATA[%s]]></ToUserName>
+             <FromUserName><![CDATA[%s]]></FromUserName>
+             <CreateTime>%s</CreateTime>
+             <MsgType><![CDATA[text]]></MsgType>
+             <Content><![CDATA[%s]]></Content>
+             <FuncFlag>0</FuncFlag>
+             </xml>"""
+
+@get("/")
+def checkSignature():
+	"""
+	这里是用来做接口验证的，从微信Server请求的URL中拿到“signature”,“timestamp”,"nonce"和“echostr”，
+	然后再将token, timestamp, nonce三个排序并进行Sha1计算，并将计算结果和拿到的signature进行比较，
+	如果相等，就说明验证通过。
+	话说微信的这个验证做的很渣，因为只要把echostr返回去，就能通过验证，这也就造成我看到一个Blog中，
+	验证那儿只返回了一个echostr，而纳闷了半天。
+	附微信Server请求的Url示例：http://yoursaeappid.sinaapp.com/?signature=730e3111ed7303fef52513c8733b431a0f933c7c
+	&echostr=5853059253416844429&timestamp=1362713741&nonce=1362771581
+	"""
+	token = "solairwechat"  # 你在微信公众平台上设置的TOKEN
+	signature = request.GET.get('signature', None)  # 拼写不对害死人那，把signature写成singnature，直接导致怎么也认证不成功
+	timestamp = request.GET.get('timestamp', None)
+	nonce = request.GET.get('nonce', None)
+	echostr = request.GET.get('echostr', None)
+	tmpList = [token, timestamp, nonce]
+	tmpList.sort()
+	tmpstr = "%s%s%s" % tuple(tmpList)
+	hashstr = hashlib.sha1(tmpstr).hexdigest()
+	if hashstr == signature:
+		return echostr
+	else:
+		return None
+
+def parse_msg():
+	"""
+	这里是用来解析微信Server Post过来的XML数据的，取出各字段对应的值，以备后面的代码调用，也可用lxml等模块。
+	"""
+	recvmsg = request.body.read()  # 严重卡壳的地方，最后还是在Stack OverFlow上找到了答案
+	root = ET.fromstring(recvmsg)
+	msg = {}
+	for child in root:
+		msg[child.tag] = child.text
+	return msg
+		
+@post("/")
+def response_msg():
+	global gameStart
+	global player_list
+	global playerFlag
+	msg = parse_msg()
+	if msg["MsgType"] == "event" :
+		echostr = TPL_TEXT %(msg['FromUserName'], msg['ToUserName'],str(int(time.time())), u"欢迎关注sola的个人订阅号！！")
+		return echostr
+	else:
+		msg_content = msg["Content"]
+		msg_user = msg["FromUserName"]
+		if msg_user == AuthorID:
+			if msg_content == "s":
+				content = u"游戏即将开始，当前为%d人局，%d个好人，%d个坏人"% (num_of_player, num_of_good, num_of_bad)
+				if gameStart:
+					content = u"游戏已经开始"
+					echostr = TPL_TEXT %(msg_user, msg['ToUserName'],str(int(time.time())), content)
+					return echostr
+				else:
+					gameStart = 1
+					init_player("sola",msg_user)
+					# thread.start_new_thread(run_game, ("thread1",))
+
+				echostr = TPL_TEXT %(msg_user, msg['ToUserName'],str(int(time.time())), content)
+				return echostr
+			elif msg_content == "c":
+				content = u"强行结束游戏"
+				gameStart = 0
+				"此处需要释放已经初始化的player实例，清空player_list"
+				echostr = TPL_TEXT %(msg_user, msg['ToUserName'],str(int(time.time())), content)
+				return echostr
+		else:
+			if gameStart:
+				init_player(msg_content,msg_user)
+				content = u"你已成功加入游戏，你是%s号玩家，你的昵称为%s"% (player_list[playerFlag-2].id,player_list[playerFlag-2].name)
+				echostr = TPL_TEXT %(msg_user, msg['ToUserName'],str(int(time.time())), content)
+				print player_list
+				return echostr
+			else:
+				echostr = TPL_TEXT %(msg_user, msg['ToUserName'],str(int(time.time())), u"游戏还未开始")
+				print player_list
+				return echostr
+
 if __name__ == '__main__':
-	init_game()
-	start_game()
+	# init_game()
+	# start_game()
+	debug(True)
+	run(host='localhost',port=8080,reloader=True)
 else:
 	pass
