@@ -15,6 +15,9 @@ num_of_bad = 2
 player_list = []
 playerFlag = 1
 
+leaderid = 0
+bad_guy_list =[]
+
 class Player:
 	"""docstring for Player"""
 
@@ -192,41 +195,23 @@ def init_player(name,wechatID):
 	player_list.append(Player(id=playerFlag, name=name, wechatID=wechatID))
 	playerFlag += 1	
 
-"去掉该函数，将init过程增加在玩家创建时"
-def init_game():
-	#创建玩家
-	global player_list
-	global player_leader	
-	# good_guy_list = []
+def random_leader():
+	leaderid = random.randrange(1,6,1)
+	return leaderid
+
+def random_bad_guy():
 	bad_guy_list = []
-	
-	# print "请依次输入玩家的名称"
-	# a = 1
-	# while a < 7:
-	# 	player_list.append(Player(id=a, name=raw_input_nospace()))
-	# 	a += 1
-	# print "玩家已经创建"
-
-	#随机确认队长
-	player_leader = random.choice(player_list)
-	player_leader.is_leader = True
-
-	#随机选出间谍（坏人）
-	bad_guy_1 = random.choice(player_list)
-	bad_guy_2 = random.choice(player_list)
-	i = True
+	bad_guy_1 = random.randrange(1,6,1)
+	bad_guy_2 = random.randrange(1,6,1)
+	i =True
 	while i:
 		if bad_guy_1 == bad_guy_2:
-			bad_guy_2 = random.choice(player_list)
+			bad_guy_2 = random.randrange(1,6,1)
 		else:
 			i = False
-
 	bad_guy_list.append(bad_guy_1)
 	bad_guy_list.append(bad_guy_2)
-
-	for i in bad_guy_list:
-		# print i.id
-		i.is_good = False
+	return bad_guy_list
 	
 def raw_input_nospace():
 	words = ""
@@ -265,7 +250,8 @@ def print_executants(executants, num_of_executants):
 
 AuthorID = "oLXjgjiWeAS1gfe4ECchYewwoyTc"
 
-gameStart = 0
+gameStart = False
+gameInit = False
 
 TPL_TEXT = """<xml>
              <ToUserName><![CDATA[%s]]></ToUserName>
@@ -311,76 +297,82 @@ def parse_msg():
 	for child in root:
 		msg[child.tag] = child.text
 	return msg
+
+def mix_echostr(user, touser, content):
+	echostr = TPL_TEXT %(user, touser,str(int(time.time())), content)
+	return echostr
 		
 @post("/")
 def response_msg():
 	global gameStart
+	global gameInit
 	global player_list
 	global playerFlag
+	global leaderid
+	global bad_guy_list
+
+	commands = ['vote:','show:','select:','view:']
+	super_commands = commands + ['s','c']
+
 	msg = parse_msg()
+	msg_user = msg["FromUserName"]
+
 	if msg["MsgType"] == "event" :
-		echostr = TPL_TEXT %(msg['FromUserName'], msg['ToUserName'],str(int(time.time())), u"欢迎关注sola的个人订阅号！！")
+		echostr =  mix_echostr(msg_user,  msg['ToUserName'], u"欢迎关注sola的个人订阅号！！")
 		return echostr
 	else:
 		msg_content = msg["Content"]
-		msg_user = msg["FromUserName"]
-		if msg_user == AuthorID:
-			if msg_content == "s":
-				content = u"游戏即将开始，当前为%d人局，%d个好人，%d个坏人"% (num_of_player, num_of_good, num_of_bad)
-				if gameStart:
-					content = u"游戏已经开始"
-					echostr = TPL_TEXT %(msg_user, msg['ToUserName'],str(int(time.time())), content)
-					return echostr
-				else:
-					gameStart = 1
-					init_player("sola",msg_user)
-					# thread.start_new_thread(run_game, ("thread1",))
-
-				echostr = TPL_TEXT %(msg_user, msg['ToUserName'],str(int(time.time())), content)
-				return echostr
-			elif msg_content == "c":
-				content = u"强行结束游戏"
-				gameStart = 0
-				"此处需要释放已经初始化的player实例，清空player_list"
-				player_list = []
-				playerFlag = 1
-				echostr = TPL_TEXT %(msg_user, msg['ToUserName'],str(int(time.time())), content)
-				return echostr
-			elif msg_content == "i":
-				if gameStart:
-					init_game()
-					content = u"玩家初始化已完成"
-					echostr = TPL_TEXT %(msg_user, msg['ToUserName'],str(int(time.time())), content)
-					return echostr
-				else:
-					content = u"游戏还没有开始"
-					echostr = TPL_TEXT %(msg_user, msg['ToUserName'],str(int(time.time())), content)
-					return echostr
-		else:
-			if gameStart:
-				if playerFlag < 7:
-
+		if gameStart:
+			if playerFlag < 7:
 					for a in player_list :
 						if msg_user == a.wechatID:
 							print "你已经在游戏中了"
-							content = u"你已经在游戏中了"
-							echostr = TPL_TEXT %(msg_user, msg['ToUserName'],str(int(time.time())), content)
+							content = u"你已经在游戏中了，等待其她玩家加入"
+							echostr = mix_echostr(msg_user, msg['ToUserName'], content)
 							print player_list
 							return echostr
-
 					init_player(msg_content,msg_user)
-					content = u"你已成功加入游戏，你是%s号玩家，你的昵称为%s"% (player_list[playerFlag-2].id,player_list[playerFlag-2].name)
-					echostr = TPL_TEXT %(msg_user, msg['ToUserName'],str(int(time.time())), content)
+
+					player = player_list[playerFlag-2]
+					if player.id == leaderid:
+						player.is_leader = True
+					if player.id in bad_guy_list:
+						player.is_good = False
+
+					content = u"你已成功加入游戏，你是%s号玩家，你的昵称为%s，身份为%s，是否是本局队长%s"% (player.id,player.name,player.is_good,player.is_leader)
+					echostr = mix_echostr(msg_user, msg['ToUserName'], content)
+					if playerFlag == 6:
+						gameInit = True
+
 					print player_list
 					return echostr
-				else:
-					content = u"游戏已满员"
-					echostr = TPL_TEXT %(msg_user, msg['ToUserName'],str(int(time.time())), content)
-					return echostr
 			else:
-				echostr = TPL_TEXT %(msg_user, msg['ToUserName'],str(int(time.time())), u"游戏还未开始")
-				print player_list
+				content = u"游戏已满员"
+				echostr = TPL_TEXT %(msg_user, msg['ToUserName'],str(int(time.time())), content)
 				return echostr
+		else:
+			if msg_user == AuthorID:
+				if msg_content == 's':
+					gameStart = 1
+					leaderid = random_leader()
+					bad_guy_list = random_bad_guy()
+
+					init_player("sola",msg_user)
+					player = player_list[playerFlag-2]
+					if player.id == leaderid:
+						player.is_leader = True
+					if player.id in bad_guy_list:
+						player.is_good = False
+					content = u"游戏即将开始，当前为%d人局，%d个好人，%d个坏人，你是%s号玩家，昵称%s为，身份为%s，是否是本局队长%s"% (num_of_player, num_of_good, num_of_bad,player.id,player.name,player.is_good,player.is_leader)
+					echostr = mix_echostr(msg_user, msg['ToUserName'], content)
+					return echostr
+				else:
+					echostr = mix_echostr(msg_user, msg['ToUserName'], u"游戏还没有开始，输入小写s开始游戏")
+					return echostr	
+			else:
+				echostr = mix_echostr(msg_user, msg['ToUserName'], u"游戏还没有开始")
+				return echostr		
+		
 
 if __name__ == '__main__':
 	debug(True)
