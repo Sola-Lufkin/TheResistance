@@ -33,9 +33,13 @@ class Player:
 			x = "坏人"
 
 		if self.is_leader:
-			print "你的名称是%s，ID是%s，身份是%s 。并且你是本局的队长"% (self.name, self.id, x)
+			a = "你的名称是%s，ID是%s，身份是%s 。并且你是本局的队长"% (self.name, self.id, x)
+			print a
+			return a
 		else:
-			print "你的名称是%s，ID是%s，身份是%s 。"% (self.name, self.id, x)
+			a = "你的名称是%s，ID是%s，身份是%s 。"% (self.name, self.id, x)
+			print a
+			return a
 
 	def show_leader(self):
 		for i in player_list:
@@ -188,6 +192,7 @@ def init_player(name,wechatID):
 	player_list.append(Player(id=playerFlag, name=name, wechatID=wechatID))
 	playerFlag += 1	
 
+"去掉该函数，将init过程增加在玩家创建时"
 def init_game():
 	#创建玩家
 	global player_list
@@ -195,12 +200,12 @@ def init_game():
 	# good_guy_list = []
 	bad_guy_list = []
 	
-	print "请依次输入玩家的名称"
-	a = 1
-	while a < 7:
-		player_list.append(Player(id=a, name=raw_input_nospace()))
-		a += 1
-	print "玩家已经创建"
+	# print "请依次输入玩家的名称"
+	# a = 1
+	# while a < 7:
+	# 	player_list.append(Player(id=a, name=raw_input_nospace()))
+	# 	a += 1
+	# print "玩家已经创建"
 
 	#随机确认队长
 	player_leader = random.choice(player_list)
@@ -252,6 +257,10 @@ def print_executants(executants, num_of_executants):
 		sentence = "%d号玩家%s, %d号玩家%s, %d号玩家%s, %d号玩家%s"% (executants[0].id, executants[0].name, executants[1].id, executants[1].name, executants[2].id, executants[2].name, executants[3].id, executants[3].name)
 	return sentence
 
+
+
+
+#####################################################
 
 
 AuthorID = "oLXjgjiWeAS1gfe4ECchYewwoyTc"
@@ -333,23 +342,47 @@ def response_msg():
 				content = u"强行结束游戏"
 				gameStart = 0
 				"此处需要释放已经初始化的player实例，清空player_list"
+				player_list = []
+				playerFlag = 1
 				echostr = TPL_TEXT %(msg_user, msg['ToUserName'],str(int(time.time())), content)
 				return echostr
+			elif msg_content == "i":
+				if gameStart:
+					init_game()
+					content = u"玩家初始化已完成"
+					echostr = TPL_TEXT %(msg_user, msg['ToUserName'],str(int(time.time())), content)
+					return echostr
+				else:
+					content = u"游戏还没有开始"
+					echostr = TPL_TEXT %(msg_user, msg['ToUserName'],str(int(time.time())), content)
+					return echostr
 		else:
 			if gameStart:
-				init_player(msg_content,msg_user)
-				content = u"你已成功加入游戏，你是%s号玩家，你的昵称为%s"% (player_list[playerFlag-2].id,player_list[playerFlag-2].name)
-				echostr = TPL_TEXT %(msg_user, msg['ToUserName'],str(int(time.time())), content)
-				print player_list
-				return echostr
+				if playerFlag < 7:
+
+					for a in player_list :
+						if msg_user == a.wechatID:
+							print "你已经在游戏中了"
+							content = u"你已经在游戏中了"
+							echostr = TPL_TEXT %(msg_user, msg['ToUserName'],str(int(time.time())), content)
+							print player_list
+							return echostr
+
+					init_player(msg_content,msg_user)
+					content = u"你已成功加入游戏，你是%s号玩家，你的昵称为%s"% (player_list[playerFlag-2].id,player_list[playerFlag-2].name)
+					echostr = TPL_TEXT %(msg_user, msg['ToUserName'],str(int(time.time())), content)
+					print player_list
+					return echostr
+				else:
+					content = u"游戏已满员"
+					echostr = TPL_TEXT %(msg_user, msg['ToUserName'],str(int(time.time())), content)
+					return echostr
 			else:
 				echostr = TPL_TEXT %(msg_user, msg['ToUserName'],str(int(time.time())), u"游戏还未开始")
 				print player_list
 				return echostr
 
 if __name__ == '__main__':
-	# init_game()
-	# start_game()
 	debug(True)
 	run(host='localhost',port=8080,reloader=True)
 else:
