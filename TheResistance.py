@@ -5,19 +5,6 @@ import hashlib
 import time 
 from bottle import *
 import xml.etree.cElementTree as ET
-import thread
-import threading
-
-
-num_of_player = 6
-num_of_good = 4 
-num_of_bad = 2
-player_list = []
-player_wechatIDs = []
-playerFlag = 1
-
-leaderid = 0
-bad_guy_list =[]
 
 class Player:
 	"""docstring for Player"""
@@ -86,115 +73,38 @@ class Player:
 			valid = True
 		return (valid, ballot)
 
-	def execution(self):
-		ballot = ""
-		if self.is_good :
-			print "请做出你的任务决定（请注意你是好人），小写y代表成功，小写n代表失败"
-			while 1:
-				ballot = raw_input_vote()
-				if ballot == 'y':
-					print "%s已做出决定"% self.name
-					break
-				else:
-					print "你是好人，你只能做出使任务成功的决定，请重新做决定"
+	def execution(self, msg_content):
+		valid = False
+		main_content = msg_content.split(":",1)[1]
+		ballot = main_content.strip()
+		addition = ""
+
+		if (ballot == "y")or(ballot == "n"):
+			valid = True
+			print "ballot ok"
 		else:
-			print "请做出你的任务决定（请注意你是坏人），小写y代表成功，小写n代表失败"
-			ballot = raw_input_vote()
-			print "%s已做出决定"% self.name
-		return ballot
+			print "ballot bad"
+			addition = u"无效输入，请重新输入，小写y代表任务成功，小写n代表任务失败，并且按照例如 “exe:y” 的形式输入"
 
+		if self.is_good and valid :
+			if ballot == 'y':
+				print "good guy ballot ok"
+				addition = u"妳已经成功做出任务决定 good"
+			else:
+				valid = False
+				addition = u"妳的身份是好人，妳只能做出使任务成功的决定，请输入exe:y进行任务决定！！！"
+		elif not self.is_good and valid:
+			print "bad guy ballot ok"
+			addition = u"妳已经成功做出任务决定 bad"
+		return (valid, ballot, addition)
 
-# def start_game():
-# 	print "游戏开始"
-# 	executants = []
-# 	gamestatus = []
-# 	num_of_executants = 2
-# 	flag = 1
-
-# 	#展示玩家的个人身份信息	
-# 	for i in player_list:
-# 		i.show_self_info()
-
-# 	#游戏一共有5个单局任务构成，其中一旦失败的任务，或者成功的任务数超过3个，游戏都将结束
-# 	#以下代码使用一个while循环来进行这5个单据任务，flag指示了当前所处任务局数
-# 	while flag < 6:
-# 		print "游戏当前处于任务%d"% flag
-# 		print "当前已经成功了%d个任务，失败了个%d任务"% (gamestatus.count("y"), gamestatus.count("n"))
-# 		ballots = ""
-# 		task = ""
-# 		leaderid = 0
-
-# 		if flag == 1:
-# 			num_of_executants = 2
-# 		if flag == 2:
-# 			num_of_executants = 3
-# 		if flag == 3:
-# 			num_of_executants = 4
-# 		if flag == 4:
-# 			num_of_executants = 3
-# 		if flag == 5:
-# 			num_of_executants = 4
-
-# 		#队长提议执行者
-# 		for i in player_list:
-# 			if i.is_leader:
-# 				print "当前队长是%d号玩家%s"% (i.id, i.name)
-# 				leaderid = i.id
-# 				executants = i.choose_executant(num_of_executants)
-# 				break
-		
-# 		#众人进行投票
-# 		print "队长提议的任务执行者是" + print_executants(executants, num_of_executants)
-# 		for i in player_list:
-# 			ballots += i.vote();
-
-# 		if ballots.count('y') > (num_of_player/2):
-# 			#投票通过
-# 			print "%s个人同意，%s个人反对。票数过半，投票通过"% (ballots.count('y'), ballots.count('n'))
-
-# 			#投票通过后任务执行者开始执行任务
-# 			print "现在请"+ print_executants(executants, num_of_executants) +"进行任务"
-
-# 			for i in executants:
-# 				task += i.execution();
-# 			if task.count("n") >0:
-# 				print "%d票成功，%d票失败。任务失败"% (task.count("y"), task.count("n"))
-# 				gamestatus.append("n")
-# 			else:
-# 				print "%d票成功，%d票失败。任务成功"% (task.count("y"), task.count("n"))
-# 				gamestatus.append("y")
-
-# 			#做5局3胜的判断
-# 			if gamestatus.count("n") > 2:
-# 				print "游戏结束，成功了%d个任务，失败了个%d任务，坏人赢得了比赛"% (gamestatus.count("y"), gamestatus.count("n"))
-# 				break
-# 			elif gamestatus.count("y") > 2:
-# 				print "游戏结束，成功了%d个任务，失败了个%d任务，好人赢得了比赛"% (gamestatus.count("y"), gamestatus.count("n"))
-# 				break
-# 			flag += 1
-# 			#将队长的身份向后移
-# 			player_list[leaderid-1].is_leader = False
-# 			if leaderid == 6:
-# 				player_list[0].is_leader = True
-# 			else:
-# 				player_list[leaderid].is_leader = True
-
-# 		else:
-# 			#投票未通过
-# 			print "%s个人同意，%s个人反对。票数未过半，更换队长，并且游戏继续"% (ballots.count('y'), ballots.count('n'))
-# 			#将队长的身份向后移
-# 			player_list[leaderid-1].is_leader = False
-# 			if leaderid == 6:
-# 				player_list[0].is_leader = True
-# 			else:
-# 				player_list[leaderid].is_leader = True
 
 def init_player(name,wechatID):
 	global player_list
 	global playerFlag
-	global player_wechatIDs
+	# global player_wechatIDs
 	player_list.append(Player(id=playerFlag, name=name, wechatID=wechatID))
-	player_wechatIDs.append(wechatID)
+	# player_wechatIDs.append(wechatID)
 	playerFlag += 1	
 
 def random_leader():
@@ -226,18 +136,6 @@ def find_player_by_id(id):
 		if a.id == id:
 			return a
 	
-# def print_executants(executants, num_of_executants):
-# 	sentence = ""
-# 	if num_of_executants == 2:
-# 		sentence = "%d号玩家%s, %d号玩家%s"% (executants[0].id, executants[0].name, executants[1].id, executants[1].name)
-# 	if num_of_executants == 3:
-# 		sentence = "%d号玩家%s, %d号玩家%s, %d号玩家%s"% (executants[0].id, executants[0].name, executants[1].id, executants[1].name, executants[2].id, executants[2].name)
-# 	if num_of_executants == 4:
-# 		sentence = "%d号玩家%s, %d号玩家%s, %d号玩家%s, %d号玩家%s"% (executants[0].id, executants[0].name, executants[1].id, executants[1].name, executants[2].id, executants[2].name, executants[3].id, executants[3].name)
-# 	return sentence
-
-
-
 
 #####################################################
 AuthorID = "oLXjgjiWeAS1gfe4ECchYewwoyTc"
@@ -251,18 +149,28 @@ TPL_TEXT = """<xml>
              </xml>"""
 
 ##初始化游戏全局参数
+##游戏状态标记
 gameStart = False
 gameInit = False
 gameVote = False
 gameExe = False
+##
+num_of_player = 6
+# num_of_good = 4 
+# num_of_bad = 2
+##投票箱（选举和任务执行共用）
+ballots = ""
+voted_players = []
+##
 executants = []	
 gamestatus = []
 num_of_executants = 2
 flag = 1
-ballots = ""
-voted_players = []
-executants = []
-
+player_list = []
+# player_wechatIDs = []
+playerFlag = 1
+leaderid = 0
+bad_guy_list =[]
 
 @get("/")
 def checkSignature():
@@ -311,7 +219,7 @@ def response_msg():
 	global gameVote
 	global gameExe
 	global player_list
-	global player_wechatIDs #####
+	# global player_wechatIDs 
 	global playerFlag
 	global leaderid
 	global bad_guy_list
@@ -320,6 +228,7 @@ def response_msg():
 	global ballots
 	global voted_players
 	global executants
+	global gamestatus
 
 	
 	##这里把系统命令分成了 普通命令，带参数命令，超级命令。其中超级命令只有授权账号才能使用
@@ -329,6 +238,17 @@ def response_msg():
 
 	msg = parse_msg()
 	msg_user = msg["FromUserName"]
+
+	if flag == 1:
+		num_of_executants = 2
+	if flag == 2:
+		num_of_executants = 3
+	if flag == 3:
+		num_of_executants = 4
+	if flag == 4:
+		num_of_executants = 3
+	if flag == 5:
+		num_of_executants = 4
 
 	if msg["MsgType"] == "event" :
 		echostr =  mix_echostr(msg_user,  msg['ToUserName'], u"欢迎关注sola的个人订阅号！！")
@@ -359,8 +279,8 @@ def response_msg():
 						content = u"游戏已经强行结束！！！"
 						gameStart = 0
 						# 此处释放已经初始化的player实例，清空player_list
+						# player_wechatIDs = []
 						player_list = []
-						player_wechatIDs = []
 						playerFlag = 1
 						num_of_executants = 2
 						flag = 1
@@ -373,10 +293,21 @@ def response_msg():
 				elif msg_content == 'reset:':
 				##系统超级命令 —— 重置玩家身份
 					if gameInit:
-						gameVote = False
-						gameExe = False
+						##投票箱（选举和任务执行共用）
+						ballots = ""
+						voted_players = []
+						##
+						executants = []	
+						gamestatus = []
 						num_of_executants = 2
 						flag = 1
+						player_list = []
+						# player_wechatIDs = []
+						playerFlag = 1
+						leaderid = 0
+						bad_guy_list =[]
+						gameVote = False
+						gameExe = False
 						leaderid = random_leader()
 						bad_guy_list = random_bad_guy()
 						for a in player_list:
@@ -402,7 +333,7 @@ def response_msg():
 				return echostr
 		##如果用户输入的是普通命令
 		elif msg_content in commands:
-			##
+			##普通命令 —— 显示个人信息
 			if msg_content == 'show:':
 				if gameStart and gameInit:
 					for i in player_list:
@@ -412,10 +343,10 @@ def response_msg():
 				else:
 					echostr = mix_echostr(msg_user, msg['ToUserName'],u"等待所有玩家加入游戏后才可使用show:命令")
 					return echostr
-			##
+			##普通命令 —— 显示当前局势信息
 			elif msg_content == 'view:':
 				if gameStart and gameInit:
-					content = u"现在是本轮游戏的第%d局，该局需要推选出%d人进行任务，本局队长是%d号玩家"% (flag,num_of_executants,leaderid)
+					content = u"现在是本轮游戏的第%d局，当前成功了个%d任务，失败了%d个任务，该局需要推选出%d人进行任务，本局队长是%d号玩家"% (flag, gamestatus.count("y"), gamestatus.count("n"),num_of_executants, leaderid)
 					echostr = mix_echostr(msg_user, msg['ToUserName'],content)
 					return echostr
 				else:
@@ -423,7 +354,7 @@ def response_msg():
 					return echostr
 		##如果用户输入的是带参数的命令
 		elif msg_content.split(":",1)[0]+":" in commands_with_args and msg_content.find(":") >= 0:
-			##
+			##带参命令 —— 队长选出游戏玩家
 			if msg_content.split(":",1)[0]+":" == 'select:':
 				if gameStart and gameInit and not gameExe:
 					player = find_player_by_wechatID(msg_user)
@@ -442,7 +373,7 @@ def response_msg():
 				else:
 					echostr = mix_echostr(msg_user, msg['ToUserName'],u"现在无法使用select:命令")
 					return echostr
-			##
+			##带参命令 —— 所有玩家进行投票表决
 			elif msg_content.split(":",1)[0]+":" == 'vote:':
 				if gameStart and gameInit and gameVote:
 					player = find_player_by_wechatID(msg_user)
@@ -493,14 +424,48 @@ def response_msg():
 				else:
 					echostr = mix_echostr(msg_user, msg['ToUserName'],u"现在无法使用vote:命令")
 					return echostr
-			##
+			##带参命令 —— 任务玩家进行任务表决
 			elif msg_content.split(":",1)[0]+":" == 'exe:':
 				if gameStart and gameInit and gameExe:
 					player = find_player_by_wechatID(msg_user)
 					if player:
 						if player in executants:
-							pass
-							print "works"
+							if player not in voted_players:
+								valid, ballot, content = player.execution(msg_content)
+								print valid
+								if valid:
+									voted_players.append(player)
+									ballots += ballot
+									if len(ballots) == num_of_executants:
+										gameExe = False
+										##本局任务失败
+										if ballots.count("n")>0:
+											gamestatus.append("n")
+											content = u"%d票成功，%d票失败。任务失败，更换队长，并且游戏继续"% (ballots.count("y"), ballots.count("n"))
+										##本局任务成功
+										else:
+											gamestatus.append("y")
+											content = u"%d票成功，%d票失败。任务成功，更换队长，并且游戏继续"% (ballots.count("y"), ballots.count("n"))
+										##清空本局投票
+										ballots = ""
+										voted_players = []
+										##清空本局任务执行者名单
+										executants = []
+										##游戏结束，坏人获胜
+										if gamestatus.count("n") > 2:
+											echostr = mix_echostr(msg_user, msg['ToUserName'],u"游戏结束，成功了%d个任务，失败了%d个任务，坏人赢得了游戏！！！")	% (gamestatus.count("y"), gamestatus.count("n"))							
+											return echostr
+										##游戏结束，好人获胜
+										elif gamestatus.count("y") > 2:
+											echostr = mix_echostr(msg_user, msg['ToUserName'],u"游戏结束，成功了%d个任务，失败了%d个任务，好人赢得了游戏！！！")	% (gamestatus.count("y"), gamestatus.count("n"))							
+											return echostr
+										##结束本局，计数器flag加1
+										flag += 1
+								echostr = mix_echostr(msg_user, msg['ToUserName'],content)								
+								return echostr
+							else:
+								echostr = mix_echostr(msg_user, msg['ToUserName'],u"妳已经做出了任务投票！！等待其她玩家投票中...")
+								return echostr
 						else:
 							echostr = mix_echostr(msg_user, msg['ToUserName'],u"只有该局被选中的玩家才可以使用exe:命令进行任务投票！！！")
 							return echostr
@@ -510,8 +475,6 @@ def response_msg():
 				else:
 					echostr = mix_echostr(msg_user, msg['ToUserName'],u"现在无法使用exe:命令")
 					return echostr
-
-
 		##如果用户输入的是普通文本
 		else:
 			if gameStart and not gameInit :
