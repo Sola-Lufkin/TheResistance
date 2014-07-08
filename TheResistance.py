@@ -276,7 +276,8 @@ def response_msg():
 				##系统超级命令 —— 结束游戏
 					if gameStart:
 						content = u"游戏已经强行结束！！！"
-						gameStart = 0
+						gameStart = False
+						gameInit = False
 						# 此处释放已经初始化的player实例，清空player_list
 						# player_wechatIDs = []
 						player_list = []
