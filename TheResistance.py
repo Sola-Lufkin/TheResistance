@@ -138,14 +138,13 @@ def find_player_by_id(id):
 	
 
 #####################################################
-AuthorID = "oLXjgjiWeAS1gfe4ECchYewwoyTc"
+AuthorID = "o8KqVjpuMYKrE_A6YpvXm1VT0BZE"
 TPL_TEXT = """<xml>
              <ToUserName><![CDATA[%s]]></ToUserName>
              <FromUserName><![CDATA[%s]]></FromUserName>
              <CreateTime>%s</CreateTime>
              <MsgType><![CDATA[text]]></MsgType>
              <Content><![CDATA[%s]]></Content>
-             <FuncFlag>0</FuncFlag>
              </xml>"""
 
 ##初始化游戏全局参数
@@ -507,4 +506,9 @@ if __name__ == '__main__':
 	debug(True)
 	run(host='localhost',port=8080,reloader=True)
 else:
-	pass
+    # Mod WSGI launch
+    import sae
+    debug(True)
+    os.chdir(os.path.dirname(__file__))
+    app = default_app()
+    application = sae.create_wsgi_app(app)
